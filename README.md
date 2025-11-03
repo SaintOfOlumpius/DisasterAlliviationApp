@@ -410,6 +410,10 @@ Load tests cover all API endpoints:
 
 Load tests can be integrated into Azure DevOps pipelines. See `azure-pipelines-load-test.yml` for configuration.
 
-## License
+### imagne snippets
 
-This project is provided as-is for educational purposes.
+![image not found](images/Opera%20Snapshot_2025-11-03_214452_dev.azure.com.png)
+![image not found](images/Opera%20Snapshot_2025-11-03_214508_dev.azure.com.repos.png)
+![image not found](images/Opera%20Snapshot_2025-11-03_214652_dev.azure.com.fail.png)
+![image not found](images/Opera%20Snapshot_2025-11-03_214719_dev.azure.com.pipe.png)
+
