@@ -1,0 +1,74 @@
+[
+  {
+    "collection": "Donations",
+    "documents": [
+      {
+        "Type": "Money",
+        "Description": "Cash donation for disaster relief",
+        "Amount": 5000.00,
+        "Date": "2024-01-15T10:00:00Z"
+      },
+      {
+        "Type": "Goods",
+        "Description": "Food supplies and clothing",
+        "Amount": 2500.00,
+        "Date": "2024-01-16T14:30:00Z"
+      },
+      {
+        "Type": "Services",
+        "Description": "Medical services and counseling",
+        "Amount": 3000.00,
+        "Date": "2024-01-17T09:15:00Z"
+      }
+    ]
+  },
+  {
+    "collection": "Beneficiaries",
+    "documents": [
+      {
+        "Name": "John Doe",
+        "Contact": "john.doe@example.com",
+        "Address": "123 Main Street, City, State 12345",
+        "ReceivedDonations": []
+      },
+      {
+        "Name": "Jane Smith",
+        "Contact": "jane.smith@example.com",
+        "Address": "456 Oak Avenue, City, State 67890",
+        "ReceivedDonations": []
+      }
+    ]
+  },
+  {
+    "collection": "Volunteers",
+    "documents": [
+      {
+        "Name": "Alice Johnson",
+        "Contact": "alice.johnson@example.com",
+        "AssignedDisasters": []
+      },
+      {
+        "Name": "Bob Williams",
+        "Contact": "bob.williams@example.com",
+        "AssignedDisasters": []
+      }
+    ]
+  },
+  {
+    "collection": "Disasters",
+    "documents": [
+      {
+        "Name": "Hurricane Alpha",
+        "Type": "Hurricane",
+        "DateOccurred": "2024-01-10T08:00:00Z",
+        "Location": "Coastal Region, State"
+      },
+      {
+        "Name": "Flood Beta",
+        "Type": "Flood",
+        "DateOccurred": "2024-01-12T12:00:00Z",
+        "Location": "River Valley, State"
+      }
+    ]
+  }
+]

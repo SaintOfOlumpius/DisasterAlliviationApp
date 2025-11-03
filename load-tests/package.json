@@ -1,0 +1,22 @@
+{
+  "name": "disaster-alleviation-load-tests",
+  "version": "1.0.0",
+  "description": "Load tests for Disaster Alleviation API using k6",
+  "scripts": {
+    "test:smoke": "k6 run k6-smoke-test.js",
+    "test:load": "k6 run k6-load-test.js",
+    "test:stress": "k6 run k6-stress-test.js",
+    "test:smoke:local": "k6 run --env BASE_URL=http://localhost:5000 k6-smoke-test.js",
+    "test:load:local": "k6 run --env BASE_URL=http://localhost:5000 k6-load-test.js",
+    "test:stress:local": "k6 run --env BASE_URL=http://localhost:5000 k6-stress-test.js"
+  },
+  "keywords": [
+    "load-testing",
+    "k6",
+    "performance-testing"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {}
+}
+

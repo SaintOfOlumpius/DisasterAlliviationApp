@@ -1,0 +1,61 @@
+{
+  "baseUrl": "https://localhost:5001",
+  "stages": [
+    {
+      "duration": "30s",
+      "target": 10,
+      "description": "Ramp up to 10 users"
+    },
+    {
+      "duration": "1m",
+      "target": 10,
+      "description": "Stay at 10 users"
+    },
+    {
+      "duration": "30s",
+      "target": 20,
+      "description": "Ramp up to 20 users"
+    },
+    {
+      "duration": "1m",
+      "target": 20,
+      "description": "Stay at 20 users"
+    },
+    {
+      "duration": "30s",
+      "target": 0,
+      "description": "Ramp down to 0 users"
+    }
+  ],
+  "thresholds": {
+    "http_req_duration": [
+      "p(95)<500",
+      "p(99)<1000"
+    ],
+    "http_req_failed": [
+      "rate<0.01"
+    ],
+    "errors": [
+      "rate<0.01"
+    ]
+  },
+  "scenarios": {
+    "read_heavy": {
+      "weight": 70,
+      "description": "Read-heavy workload (GET requests)"
+    },
+    "write_light": {
+      "weight": 20,
+      "description": "Write operations (POST requests)"
+    },
+    "update_light": {
+      "weight": 8,
+      "description": "Update operations (PUT requests)"
+    },
+    "delete_minimal": {
+      "weight": 2,
+      "description": "Delete operations (DELETE requests)"
+    }
+  }
+}
+

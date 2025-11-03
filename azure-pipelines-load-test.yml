@@ -1,0 +1,114 @@
+# Azure DevOps Pipeline for Load Testing
+# This pipeline runs k6 load tests against the Disaster Alleviation API
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+  paths:
+    include:
+      - load-tests/**
+      - DisasterAlleviationApp/**
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  apiBaseUrl: 'https://localhost:5001'  # Configure this to point to your API
+  # For staging/production, set via Pipeline Variables:
+  # ApiBaseUrl: 'https://your-staging-api.com'
+
+stages:
+- stage: LoadTest
+  displayName: 'Load Testing'
+  jobs:
+  - job: InstallAndRunLoadTests
+    displayName: 'Install k6 and Run Load Tests'
+    steps:
+    
+    # Install k6
+    - task: Bash@3
+      displayName: 'Install k6'
+      inputs:
+        targetType: 'inline'
+        script: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+          k6 version
+    
+    # Run smoke test first
+    - task: Bash@3
+      displayName: 'Run Smoke Test'
+      inputs:
+        targetType: 'inline'
+        workingDirectory: 'load-tests'
+        script: |
+          echo "Running smoke test against $(ApiBaseUrl)"
+          k6 run --env BASE_URL=$(ApiBaseUrl) k6-smoke-test.js || true
+      continueOnError: true
+    
+    # Run load test
+    - task: Bash@3
+      displayName: 'Run Load Test'
+      inputs:
+        targetType: 'inline'
+        workingDirectory: 'load-tests'
+        script: |
+          echo "Running load test against $(ApiBaseUrl)"
+          k6 run --env BASE_URL=$(ApiBaseUrl) --out json=load-test-results.json k6-load-test.js
+      continueOnError: false
+    
+    # Run stress test (optional - can be skipped in CI)
+    - task: Bash@3
+      displayName: 'Run Stress Test (Optional)'
+      inputs:
+        targetType: 'inline'
+        workingDirectory: 'load-tests'
+        script: |
+          echo "Running stress test against $(ApiBaseUrl)"
+          k6 run --env BASE_URL=$(ApiBaseUrl) --out json=stress-test-results.json k6-stress-test.js || true
+      continueOnError: true
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    
+    # Publish test results
+    - task: PublishTestResults@2
+      displayName: 'Publish Load Test Results'
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/load-test-results.json'
+        testRunTitle: 'Load Test Results'
+        mergeTestResults: true
+      condition: always()
+    
+    # Publish artifacts
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Load Test Artifacts'
+      inputs:
+        pathToPublish: 'load-tests'
+        artifactName: 'load-test-results'
+        publishLocation: 'Container'
+      condition: always()
+
+# Alternative: Run load tests only on schedule (nightly, weekly, etc.)
+# Uncomment the schedule section below and comment out the trigger section above
+
+# schedules:
+# - cron: "0 2 * * *"  # Run daily at 2 AM UTC
+#   displayName: 'Nightly Load Tests'
+#   branches:
+#     include:
+#       - main
+#   always: true
+

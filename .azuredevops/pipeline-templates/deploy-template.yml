@@ -1,0 +1,20 @@
+# Reusable template for deployment tasks
+parameters:
+  - name: environmentName
+    default: 'Development'
+  - name: azureSubscription
+    default: ''
+  - name: appServiceName
+    default: ''
+  - name: packagePath
+    default: '$(Pipeline.Workspace)/drop/app/**/*.zip'
+
+steps:
+- task: AzureWebApp@1
+  displayName: 'Deploy to Azure App Service'
+  inputs:
+    azureSubscription: '${{ parameters.azureSubscription }}'
+    appName: '${{ parameters.appServiceName }}'
+    package: '${{ parameters.packagePath }}'
+    deploymentMethod: 'auto'
+

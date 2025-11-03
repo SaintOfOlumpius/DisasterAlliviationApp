@@ -1,0 +1,155 @@
+# Azure DevOps Pipeline for Disaster Alleviation App
+# This pipeline builds, tests, and reports on the .NET 8.0 application
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - '*.md'
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  testResultsFormat: 'JUnit'
+  codeCoverageTool: 'Cobertura'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Build and Run Tests'
+    steps:
+    
+    # Install .NET SDK
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8.0 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+        includePreviewVersions: false
+    
+    # Restore dependencies
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore NuGet packages'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+        feedsToUse: 'select'
+    
+    # Build the solution
+    - task: DotNetCoreCLI@2
+      displayName: 'Build solution'
+      inputs:
+        command: 'build'
+        projects: '**/*.sln'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+      continueOnError: false
+    
+    # Run tests with code coverage
+    - task: DotNetCoreCLI@2
+      displayName: 'Run unit tests with code coverage'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" --results-directory $(Agent.TempDirectory)/TestResults --logger "trx;LogFileName=test-results.trx" --logger "junit;LogFileName=test-results.xml"'
+      continueOnError: false
+    
+    # Publish test results (TRX format)
+    - task: PublishTestResults@2
+      displayName: 'Publish test results (TRX)'
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/*.trx'
+        testRunTitle: 'Unit Test Results'
+        failTaskOnFailedTests: true
+        mergeTestResults: true
+      condition: succeededOrFailed()
+    
+    # Publish test results (JUnit format)
+    - task: PublishTestResults@2
+      displayName: 'Publish test results (JUnit)'
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/test-results.xml'
+        testRunTitle: 'Unit Test Results (JUnit)'
+        mergeTestResults: true
+      condition: succeededOrFailed()
+    
+    # Publish code coverage reports
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+        reportDirectory: '$(Agent.TempDirectory)/TestResults/**/'
+        failIfCoverageEmpty: false
+      condition: succeededOrFailed()
+    
+    # Publish build artifacts
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish application'
+      inputs:
+        command: 'publish'
+        projects: '**/DisasterAlleviationApp.csproj'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/app'
+        zipAfterPublish: true
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build artifacts'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: QualityCheck
+  displayName: 'Quality Gates'
+  dependsOn: Build
+  jobs:
+  - job: QualityGate
+    displayName: 'Code Quality Check'
+    steps:
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'Run code analysis (if configured)'
+      inputs:
+        command: 'custom'
+        custom: 'format'
+        arguments: '--verify-no-changes --check'
+      continueOnError: true
+    
+    # Add additional quality checks here (SonarQube, etc.)
+    
+- stage: SecurityScan
+  displayName: 'Security Scanning'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: SecurityScan
+    displayName: 'Dependency Vulnerability Scan'
+    steps:
+    
+    # Scan for vulnerable packages
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore with vulnerability check'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+        arguments: '--verbosity minimal'
+    
+    # Add security scanning tools as needed (WhiteSource, Snyk, etc.)
+

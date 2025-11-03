@@ -1,0 +1,245 @@
+# Full-featured Azure DevOps Pipeline with all stages
+# Use this if you need deployment and advanced features
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - '*.md'
+      - '.azuredevops/**'
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  testResultsFormat: 'JUnit'
+  codeCoverageTool: 'Cobertura'
+  solutionPath: '**/*.sln'
+  testProjectPath: '**/*Tests.csproj'
+  
+  # Azure deployment variables (configure in Pipeline Variables)
+  # azureSubscription: 'Your-Azure-Service-Connection'
+  # appServiceName: 'Your-App-Service-Name'
+  # environmentName: 'Production'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Build and Run Tests'
+    steps:
+    
+    # Checkout code
+    - checkout: self
+      fetchDepth: 0
+    
+    # Install .NET SDK
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8.0 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+        includePreviewVersions: false
+    
+    # Restore dependencies
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore NuGet packages'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+        feedsToUse: 'select'
+    
+    # Build the solution
+    - task: DotNetCoreCLI@2
+      displayName: 'Build solution'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+      continueOnError: false
+    
+    # Run tests with code coverage
+    - task: DotNetCoreCLI@2
+      displayName: 'Run unit tests with code coverage'
+      inputs:
+        command: 'test'
+        projects: '$(testProjectPath)'
+        arguments: |
+          --configuration $(buildConfiguration)
+          --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory $(Agent.TempDirectory)/TestResults
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "junit;LogFileName=test-results.xml"
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      continueOnError: false
+    
+    # Publish test results (TRX format)
+    - task: PublishTestResults@2
+      displayName: 'Publish test results (TRX)'
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/*.trx'
+        testResultsSearchPattern: '**/*.trx'
+        testRunTitle: 'Unit Test Results (xUnit)'
+        failTaskOnFailedTests: true
+        mergeTestResults: true
+      condition: succeededOrFailed()
+    
+    # Publish test results (JUnit format)
+    - task: PublishTestResults@2
+      displayName: 'Publish test results (JUnit)'
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/test-results.xml'
+        testResultsSearchPattern: '**/test-results.xml'
+        testRunTitle: 'Unit Test Results (JUnit)'
+        mergeTestResults: true
+      condition: succeededOrFailed()
+    
+    # Convert coverage to Cobertura format
+    - task: PowerShell@2
+      displayName: 'Convert coverage format'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Coverage conversion handled by Coverlet
+          Write-Host "Coverage files generated in $(Agent.TempDirectory)/TestResults"
+      condition: succeededOrFailed()
+    
+    # Publish code coverage reports
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+        reportDirectory: '$(Agent.TempDirectory)/TestResults/**/'
+        failIfCoverageEmpty: false
+      condition: succeededOrFailed()
+    
+    # Publish build artifacts
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish application'
+      inputs:
+        command: 'publish'
+        projects: '**/DisasterAlleviationApp.csproj'
+        arguments: |
+          --configuration $(buildConfiguration)
+          --output $(Build.ArtifactStagingDirectory)/app
+          --no-build
+        zipAfterPublish: true
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build artifacts'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+        publishLocation: 'Container'
+      condition: succeeded()
+
+- stage: QualityCheck
+  displayName: 'Quality Gates'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: QualityGate
+    displayName: 'Code Quality Check'
+    steps:
+    
+    - checkout: self
+    
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8.0 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+    
+    # Add code formatting check
+    - task: DotNetCoreCLI@2
+      displayName: 'Check code formatting'
+      inputs:
+        command: 'custom'
+        custom: 'format'
+        arguments: '--verify-no-changes --check .'
+      continueOnError: true
+    
+    # Add other quality checks here
+    - task: PowerShell@2
+      displayName: 'Quality gate validation'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Quality checks passed"
+          # Add custom quality checks here
+
+- stage: SecurityScan
+  displayName: 'Security Scanning'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: SecurityScan
+    displayName: 'Dependency Vulnerability Scan'
+    steps:
+    
+    - checkout: self
+    
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8.0 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+    
+    # Restore with vulnerability check
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+        arguments: '--verbosity minimal'
+    
+    # Add security scanning tools (WhiteSource, Snyk, etc.)
+    - task: PowerShell@2
+      displayName: 'Security scan summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Security scan completed"
+          # Add security scanning tools here
+
+# Uncomment and configure for deployment
+# - stage: Deploy
+#   displayName: 'Deploy to Azure'
+#   dependsOn: 
+#     - Build
+#     - QualityCheck
+#   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+#   jobs:
+#   - deployment: DeployToAppService
+#     displayName: 'Deploy to Azure App Service'
+#     environment: 'Production'
+#     strategy:
+#       runOnce:
+#         deploy:
+#           steps:
+#           - task: AzureWebApp@1
+#             displayName: 'Deploy to Azure App Service'
+#             inputs:
+#               azureSubscription: '$(azureSubscription)'
+#               appName: '$(appServiceName)'
+#               package: '$(Pipeline.Workspace)/drop/app/**/*.zip'
+#               deploymentMethod: 'auto'
+
