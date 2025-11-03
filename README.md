@@ -417,3 +417,7 @@ Load tests can be integrated into Azure DevOps pipelines. See `azure-pipelines-l
 ![image not found](images/Opera%20Snapshot_2025-11-03_214652_dev.azure.com.fail.png)
 ![image not found](images/Opera%20Snapshot_2025-11-03_214719_dev.azure.com.pipe.png)
 
+
+##   Unit Test report 
+[Download the full report](docs/Swagger%20UI.pdf)
+[Download the full report](docs/Swagger%20UI%20a%20little%20more%20detail.pdf)
